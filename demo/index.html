@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Woo Yandex Delivery Zones — демо редактора зон</title>
+  <link rel="stylesheet" href="../admin/admin.css" />
+  <style>
+    body { margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1d2327; background: #f0f0f1; }
+    .demo-bar { background: #1d2327; color: #fff; padding: 10px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .demo-bar a { color: #72aee6; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 20px 40px; background: #fff; }
+    h1 { font-size: 23px; font-weight: 400; } h2 { font-size: 18px; margin-top: 24px; }
+    .form-table th { text-align: left; padding: 8px 12px 8px 0; font-weight: 600; width: 260px; }
+    input[type=text], input[type=number] { padding: 4px 8px; border: 1px solid #8c8f94; border-radius: 4px; }
+    .button { display: inline-block; padding: 4px 12px; border: 1px solid #2271b1; color: #2271b1; background: #f6f7f7; border-radius: 3px; cursor: pointer; font: inherit; }
+    .button-primary { background: #2271b1; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="demo-bar">
+    <strong>Демо админ-редактора плагина</strong>
+    <span>Зоны тестовые, сохранение не отправляется на сервер.</span>
+    <a href="https://github.com/Hammod-M/woo-yandex-delivery-zones">Исходный код на GitHub</a>
+  </div>
+  <div class="wrap wyd-admin-wrap" style="position:relative;">
+    <h1>Yandex Delivery Zones — Настройки</h1>
+    <form onsubmit="return false">
+      <h2>API ключ и настройки</h2>
+      <table class="form-table">
+        <tr><th>Yandex API Key</th><td><input type="text" value="••••••••-demo" style="width:420px" disabled></td></tr>
+        <tr><th>Цена по умолчанию (вне зон)</th><td><input type="text" value="1500" style="width:120px"> ₽</td></tr>
+        <tr><th>Минимальная сумма для "МСК нестандартная"</th><td><input type="number" id="wyd_zone_min_sum" value="5000" style="width:120px"> ₽</td></tr>
+        <tr><th>Текст при вне зоны</th><td><input type="text" value="Доставка по согласованию с менеджером" style="width:420px"></td></tr>
+      </table>
+      <h2>Визуальный редактор зон</h2>
+      <p>Кнопки: <strong>Добавить polygon</strong>, <strong>Редактировать</strong>, <strong>Удалить</strong>, затем <strong>Сохранить зоны</strong>. Клик по зоне открывает панель с названием, ценой и цветом.</p>
+      <div id="wyd_admin_map" style="height:480px;border:1px solid #ddd;margin-bottom:10px"></div>
+      <div class="wyd-controls" style="margin-bottom:10px;">
+        <button id="wyd_add_polygon" class="button">Добавить polygon</button>
+        <button id="wyd_edit_mode" class="button">Редактировать выбранную</button>
+        <button id="wyd_delete_selected" class="button">Удалить выбранную</button>
+        <button id="wyd_save_zones" class="button button-primary">Сохранить зоны</button>
+      </div>
+      <input type="hidden" id="wyd_zones_json" value="[]">
+    </form>
+    <hr>
+    <h2>Текущие зоны (JSON)</h2>
+    <textarea rows="10" style="width:100%;font-family:monospace" id="wyd_zones_json_display"></textarea>
+    <p>Измените JSON и нажмите кнопку, чтобы применить изменения на карте:</p>
+    <button type="button" id="wyd_apply_json" class="button button-secondary">Применить изменения из JSON</button>
+    <div id="wyd_admin_sidebar" style="display:none; position:absolute; top:120px; right:40px; width:280px; background:#fff; border:1px solid #ccc; padding:15px; box-shadow:0 2px 10px rgba(0,0,0,0.1); z-index:10000; border-radius:8px;">
+      <h3 style="margin-top:0;font-size:16px;">Редактирование зоны</h3>
+      <label>Название</label><input type="text" id="wyd_zone_name" style="width:100%;margin-bottom:8px;">
+      <label>Цена (₽)</label><input type="number" id="wyd_zone_price" style="width:100%;margin-bottom:8px;">
+      <label>Цвет</label><input type="color" id="wyd_zone_color" style="width:100%;margin-bottom:8px;">
+      <button id="wyd_zone_save" class="button button-primary" style="width:100%;">Сохранить</button>
+      <button id="wyd_zone_close" class="button" style="width:100%;margin-top:6px;">Закрыть</button>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
+  <script>
+    // Stand-in for WordPress: the editor talks to admin-ajax.php, here we answer locally.
+    var DEMO_ZONES = [
+      { type: 'polygon', id: 'outer', name: 'За МКАД до 15 км', price: 900, color: '#f59e0b66', min_sum: 0,
+        coordinates: [[[37.24, 55.62], [37.30, 55.86], [37.52, 55.98], [37.80, 55.96], [37.99, 55.80], [37.95, 55.58], [37.72, 55.49], [37.42, 55.50], [37.24, 55.62]]] },
+      { type: 'polygon', id: 'mkad', name: 'В пределах МКАД', price: 500, color: '#2563eb66', min_sum: 0,
+        coordinates: [[[37.37, 55.66], [37.40, 55.84], [37.53, 55.91], [37.70, 55.90], [37.84, 55.82], [37.84, 55.66], [37.68, 55.57], [37.50, 55.58], [37.37, 55.66]]] },
+      { type: 'polygon', id: 'center', name: 'Центр (Садовое кольцо)', price: 300, color: '#16a34a88', min_sum: 0,
+        coordinates: [[[37.58, 55.74], [37.59, 55.77], [37.63, 55.78], [37.66, 55.76], [37.65, 55.73], [37.61, 55.72], [37.58, 55.74]]] }
+    ];
+    window.WYD_ADMIN = { ajax_url: '#demo', nonce: 'demo', get_zones_action: 'wyd_v2_get_zones', save_zones_action: 'wyd_v2_save_zones', settings: {} };
+    jQuery.post = function (url, data, done) {
+      var resp = data && data.action === 'wyd_v2_get_zones'
+        ? { success: true, data: { zones: DEMO_ZONES } }
+        : { success: true, data: { message: 'demo' } };
+      setTimeout(function () { if (typeof done === 'function') done(resp); }, 50);
+      return jQuery.Deferred().resolve(resp).promise();
+    };
+  </script>
+  <script src="../admin/admin.js"></script>
+</body>
+</html>

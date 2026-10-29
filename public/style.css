@@ -1,0 +1,19 @@
+#delivery-map {
+   width: 100%;
+   height: 420px;
+   border: 1px solid #ddd;
+   border-radius: 6px;
+   margin-bottom: 10px;
+}
+#wyd_zone_info {
+   font-size: 15px;
+}
+.wyd-map-wrapper {
+   margin-top: 10px;
+}
+.wyd-nonstandard-disabled {
+   opacity: 0.6;
+}
+.wyd-nonstandard-msg {
+   font-size: 13px;
+}
